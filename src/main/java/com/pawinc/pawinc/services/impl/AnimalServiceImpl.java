@@ -38,13 +38,7 @@ public class AnimalServiceImpl implements AnimalService {
         if (!animalRepository.findAll().isEmpty()) {
             List<AnimalResponseModel> animals = new ArrayList<>();
             animalRepository.findAll()
-                    .forEach(animal -> animals.add(new AnimalResponseModel(
-                            animal.getAnimalId(),
-                            animal.getName(),
-                            animal.getType(),
-                            animal.getStatus(),
-                            animal.getCenter()
-                    )));
+                    .forEach(animal -> animals.add(getAnimalResponseElements(animal)));
             return animals;
         } else {
             throw new AnimalServiceException("There are no animals in the database");
@@ -54,12 +48,14 @@ public class AnimalServiceImpl implements AnimalService {
     @Override
     public AnimalResponseModel getAnimalById(long animalId) {
         if (animalRepository.existsById(animalId)) {
-            AnimalRequestModel animal = animalRepository.findById(animalId).get();
+            AnimalRequestModel animal = getAnimalRequestModel(animalId);
             return new AnimalResponseModel(animal);
         } else {
             throw new AnimalServiceException("There is no animal with " + animalId + " in the database");
         }
     }
+
+
 
     @Override
     public AnimalResponseModel registerAnimal(AnimalRequestModel animalRequestModel) {
@@ -73,7 +69,7 @@ public class AnimalServiceImpl implements AnimalService {
     @Override
     public AnimalResponseModel deleteAnimal(long animalId) {
         if (animalRepository.existsById(animalId)) {
-            AnimalRequestModel animal = animalRepository.findById(animalId).get();
+            AnimalRequestModel animal = getAnimalRequestModel(animalId);
             animalRepository.deleteById(animalId);
             return new AnimalResponseModel(animal);
         } else {
@@ -86,14 +82,13 @@ public class AnimalServiceImpl implements AnimalService {
         List<AnimalResponseModel> animals = new ArrayList<>();
         animalIds.forEach(animalId -> {
             if (animalRepository.existsById(animalId)) {
-                AnimalRequestModel animal = animalRepository.findById(animalId).get();
+                AnimalRequestModel animal = getAnimalRequestModel(animalId);
                 if (animal.getStatus().equalsIgnoreCase(AnimalStatus.REGISTERED.toString())) {
                     animal.setStatus(AnimalStatus.CLEANSED.toString());
-                    if (!centerRepository.findAll().isEmpty()) {
+                    if (!isCenterRepositoryEmpty()) {
                         List<CenterRequestModel> shuffledAdotpionCenters = centerService.shuffleAdoptionCenters();
                         CenterRequestModel adoptionCenter = centerService.getAdoptionCenter(shuffledAdotpionCenters);
-                        animal.setCenter(adoptionCenter);
-                        animal.setCenterId(adoptionCenter.getCenterId());
+                        setCenterForAnimal(animal, adoptionCenter);
                     } else {
                         throw new CenterServiceException("There are no centers in the database");
                     }
@@ -109,18 +104,20 @@ public class AnimalServiceImpl implements AnimalService {
         return animals;
     }
 
+
+
+
     @Override
     public List<AnimalResponseModel> adoptAnimals(List<Long> animalIds) {
         List<AnimalResponseModel> animals = new ArrayList<>();
         animalIds.forEach(animalId -> {
             if (animalRepository.existsById(animalId)) {
-                AnimalRequestModel animal = animalRepository.findById(animalId).get();
+                AnimalRequestModel animal = getAnimalRequestModel(animalId);
                 if (animal.getStatus().equalsIgnoreCase(AnimalStatus.CLEANSED.toString())) {
                     animal.setStatus(AnimalStatus.ADOPTED.toString());
-                    if (!centerRepository.findAll().isEmpty()) {
+                    if (!isCenterRepositoryEmpty()) {
                         CenterRequestModel noneCenterType = centerService.findNoneCenterType();
-                        animal.setCenter(noneCenterType);
-                        animal.setCenterId(noneCenterType.getCenterId());
+                        setCenterForAnimal(animal, noneCenterType);
                     } else {
                         throw new CenterServiceException("There are no centers in the database");
                     }
@@ -135,5 +132,28 @@ public class AnimalServiceImpl implements AnimalService {
             }
         });
         return animals;
+    }
+
+    private boolean isCenterRepositoryEmpty() {
+        return centerRepository.findAll().isEmpty();
+    }
+
+    private AnimalResponseModel getAnimalResponseElements(AnimalRequestModel animal) {
+        return new AnimalResponseModel(
+                animal.getAnimalId(),
+                animal.getName(),
+                animal.getType(),
+                animal.getStatus(),
+                animal.getCenter()
+        );
+    }
+
+    private AnimalRequestModel getAnimalRequestModel(long animalId) {
+        return animalRepository.findById(animalId).get();
+    }
+
+    private void setCenterForAnimal(AnimalRequestModel animal, CenterRequestModel adoptionCenter) {
+        animal.setCenter(adoptionCenter);
+        animal.setCenterId(adoptionCenter.getCenterId());
     }
 }
